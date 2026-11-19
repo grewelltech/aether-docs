@@ -226,7 +226,7 @@ command:
           valid_lft forever preferred_lft forever
    2: ens18: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
        link/ether 2c:f0:5d:f2:d8:21 brd ff:ff:ff:ff:ff:ff
-       inet 10.76.28.113/24 metric 100 brd 10.76.28.255 scope global ens3
+       inet 10.76.28.113/24 metric 100 brd 10.76.28.255 scope global ens18
           valid_lft forever preferred_lft forever
        inet6 fe80::2ef0:5dff:fef2:d821/64 scope link
           valid_lft forever preferred_lft forever
@@ -424,10 +424,14 @@ microservices discussed is `Chapter 5
 
 .. admonition:: Troubleshooting Hint
 
-  If you see failures of the ``find ens18's netplan network
-  directory`` task in the ``router`` role, it indicates that
-  *systemd-networkd* is not configured as expected. Check the OnRamp
-  `Troubleshooting Wiki Page
+  If the ``router`` role prints "ens18 is not managed by
+  systemd-networkd. Falling back to direct macvlan interface setup",
+  OnRamp is creating the ``access`` and ``core`` interfaces with its
+  ``aether-5gc-macvlan`` service instead of systemd-networkd; that is
+  expected on a server whose interface systemd-networkd does not
+  manage. If a task in the ``router`` role that looks up the
+  interface's systemd-networkd file fails, *systemd-networkd* is not
+  configured as expected. Check the OnRamp `Troubleshooting Wiki Page
   <https://wiki.aetherproject.org/display/HOME/Troubleshooting>`__
   for possible workarounds.
 
