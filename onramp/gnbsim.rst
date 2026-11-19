@@ -32,7 +32,7 @@ following variable definitions:
    gnbsim:
        docker:
            container:
-               image: omecproject/5gc-gnbsim:main-PR_88-cc0d21b
+               image: ghcr.io/omec-project/5gc-gnbsim:rel-2.3.3
                prefix: gnbsim
                count: 2
            network:
@@ -42,16 +42,15 @@ following variable definitions:
        router:
           data_iface: ens18
           macvlan:
-               iface: gnbaccess
                subnet_prefix: "172.20"
 
        servers:
            0:
-              - "config/gnbsim-s1-p1.yaml"
-              - "config/gnbsim-s1-p2.yaml"
+              - "deps/gnbsim/config/gnbsim-s1-p1.yaml"
+              - "deps/gnbsim/config/gnbsim-s1-p2.yaml"
            1:
-              - "config/gnbsim-s2-p1.yaml"
-              - "config/gnbsim-s2-p2.yaml"
+              - "deps/gnbsim/config/gnbsim-s2-p1.yaml"
+              - "deps/gnbsim/config/gnbsim-s2-p2.yaml"
 
 The ``container.count`` variable in the ``docker`` block specifies how
 many containers run in each server (``2`` in this example). The
@@ -61,7 +60,7 @@ described in the :doc:`Verify Network </onramp/network>`
 section. Finally, the ``servers`` block names the configuration files
 that parameterize each container. In this example, there are two
 servers with two containers running in each, with
-``config/gnbsim-s2-p1.yaml`` parameterizing the first container on the
+``deps/gnbsim/config/gnbsim-s2-p1.yaml`` parameterizing the first container on the
 second server.
 
 These config files then specify the second set of gNBsim parameters.
@@ -165,8 +164,10 @@ In addition to scaling up the workload you put on the Core, you can
 also experiment with the emulation settings defined in any or all of
 the config files in ``deps/gnbsim/config/``. Focusing on ``profile2``
 in particular (because it sends data packets after registering each
-UE), variable ``defaultAs: "192.168.250.1"`` specifies the target of
-ICMP Echo Request packets. Changing the value to the IP address of a
+UE), variable ``defaultAs`` specifies the target of ICMP Echo Request
+packets. OnRamp fills it in with the gateway of the default UPF's core
+network (``192.168.250.1`` unless ``core.networks.core.gateway`` names
+a router). Changing the value to the IP address of a
 real-world server (e.g., ``8.8.8.8``) causes the emulated UE to
 actually ping that server. Success is a good indication that your
 Aether cluster is properly configured to support end-to-end

@@ -66,15 +66,14 @@ following, substituting your server's IP address for
 ``10.76.28.113``. Of particular note, setting
 ``networks.access.ran_subnet`` to the empty string indicates that the
 gNB is connected to the same physical L2 network as your Aether
-cluster, and the new ``values_file`` is tailored for a physical RAN
-rather than the emulated RAN we've been using. The Core finds its
-network interface from the server's default route, so there is no
-interface name to substitute in the ``core`` section.
+cluster. By default, OnRamp puts the UPF on the interface that carries
+the server's default route, so there is no interface name to
+substitute in the ``core`` section; to use a different interface, see
+:doc:`Verify Network </onramp/network>`.
 
 .. code-block::
 
     core:
-      standalone: true                # set to false to manage device groups/slices manually via the SD-Core webui
       values_file: "deps/5gc/roles/core/templates/sdcore-5g-values.yaml"
       networks:
          access:
@@ -197,13 +196,10 @@ entered here is purposely minimal; it's just enough to bring up and
 debug the installation. Over the lifetime of a running system,
 information about *Device Groups* and *Slices* (and the other
 abstractions they build upon) can instead be entered via the SD-Core
-webui. When you get to that point, Ansible variable ``standalone`` in
-``vars/main.yml`` (which corresponds to the override value assigned to
-``provision-network-slice`` in ``sdcore-5g-values.yaml``) should be set
-to ``false``. Doing so causes the ``device-groups`` and
-``network-slices`` blocks of ``sdcore-5g-values.yaml`` to be
-ignored. The ``subscribers`` block is always required to configure
-SD-Core.
+webui. SimApp provisions the ``device-groups`` and ``network-slices``
+blocks of ``sdcore-5g-values.yaml`` whenever the Core is installed;
+OnRamp no longer has a variable that turns this off. The
+``subscribers`` block is always required to configure SD-Core.
 
 
 Bring Up Aether

@@ -83,8 +83,8 @@ the list is not comprehensive.
      - Default
      - Description
    * - `core.networks.access.ran_subnet`
-     - `172.20.0.0/16`
-     - Overlay subnet connecting Core to RAN when gNBs run in a container; set to empty string ("") to derive it from the access interface when gNBs are directly connected to the server's physical network.
+     - `""` (derived); `172.20.0.0/16` in the gNBsim-based blueprints
+     - Where the gNBs are. Empty means the subnet of the access interface's own address, for gNBs directly connected to the server's physical network; the Quick Start, gNBsim, OAI, SR-IOV, SD-RAN, IMS and Multi-UPF blueprints set `172.20.0.0/16`, the overlay subnet their containerized gNBs use.
    * - `core.networks.<name>`
      - `access`, `core` (optional)
      - Networks the UPF attaches to; fields are `iface`, `vlan`, `subnet`, `gateway`, `attach`, `resource_name` and `ran_subnet`. All have defaults, so omitting this key gives the single-interface deployment on the default-route interface. See :doc:`Network Details </onramp/network>`.
@@ -94,10 +94,6 @@ the list is not comprehensive.
    * - `core.upf.instances.<name>`
      - `default` (optional)
      - UPFs, each with `access` and `core` (`{network, ip}`), `ue_ip_pool` and `mode`. `default` is the built-in UPF; every other instance is deployed by `5gc-upf-install`.
-   * - `core.standalone`
-     - `true`
-     - Core to run standalone with simapp-managed subscribers; set to
-       `false` to manage device groups/slices via SD-Core webui.
    * - `core.amf.ip`
      - `"10.76.28.113"`
      - IP address of AMF; edit to match IP address assigned to the server's network interface.
@@ -299,11 +295,11 @@ Quick Start Blueprint.
    * - `aether-k8s-uninstall`
      - Uninstall RKE2 Kubernetes and Helm.
    * - `aether-5gc-install`
-     - Install 5G Core workload; includes bridges for networking, the MongoDB and Kafka operators, and (if needed) a default StorageClass.
+     - Install 5G Core workload; includes the server side of the UPF's networks (`5gc-router-install`), the MongoDB and Kafka operators, and (if needed) a default StorageClass.
    * - `aether-5gc-uninstall`
-     - Uninstall 5G Core workload; includes bridges for networking, the MongoDB and Kafka operators, and Strimzi CRDs.
+     - Uninstall 5G Core workload; includes the server side of the UPF's networks (`5gc-router-uninstall`), the MongoDB and Kafka operators, and Strimzi CRDs.
    * - `aether-5gc-reset`
-     - Delete and reinstall 5G Core workload; leaves network bridges untouched.
+     - Delete and reinstall 5G Core workload; leaves the server side of the UPF's networks untouched.
    * - `aether-gnbsim-install`
      - Install gNBsim containers.
    * - `aether-gnbsim-uninstall`
@@ -420,6 +416,10 @@ other blueprints.)
 .. list-table::
    :widths: 25 50
 
+   * - `aether-add-upfs`
+     - Build any network the additional UPFs need (`5gc-router-install`), then install them (`5gc-upf-install`); assumes Core already deployed.
+   * - `aether-remove-upfs`
+     - Uninstall every additional UPF listed in `core.upf.instances`, with its route and NAT unit (`5gc-upf-uninstall`).
    * - `5gc-upf-install`
      - Install additional UPF pods; assumes Core already deployed.
    * - `5gc-upf-uninstall`
@@ -429,7 +429,8 @@ Network Subnets
 ~~~~~~~~~~~~~~~~~~~~~~
 
 OnRamp configures a set of subnets in support of a given Aether
-deployment. The following subnets are defined in ``vars/main.yml``.
+deployment. The following subnets are OnRamp's defaults; to change
+them, set the variables listed under ``core`` in ``vars/main.yml``.
 With the exception of ``core.networks.access.ran_subnet``, these variables typically
 do not need to be modified for an initial deployment of a blueprint.
 

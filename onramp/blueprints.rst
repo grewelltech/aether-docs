@@ -42,8 +42,9 @@ creating new blueprints.
 .. [#] Not all possible configurations of Aether require a
        blueprint. There are other ways to add variability, for
        example, by documenting simple ways to modify an existing
-       blueprint.  Disabling ``core.standalone`` and selecting an
-       alternative ``core.values_file`` are two common examples.
+       blueprint.  Selecting ``dpdk`` for ``core.upf.mode`` and
+       selecting an alternative ``core.values_file`` are two common
+       examples.
 
 Finally, because some blueprints include features that are not
 compatible with simple configurations like *Quick Start*, it is
@@ -99,9 +100,12 @@ You can also optionally install the monitoring subsystem.
    $ make 5gc-install
    $ make gnbsim-install
 
-Note that because ``main.yml`` sets ``core.standalone: "false"``, the
-Device Groups and Slices bound to SD-Core must be entered manually via
-the SD-Core webui rather than being provisioned automatically by simapp.
+When the Core is installed, SimApp provisions the Device Groups and
+Slices defined in the values file (``core.values_file``): one Device
+Group and one Slice, bound to the ``default`` UPF. The second UPF's
+Device Group, Slice and UPF binding are entered via the SD-Core webui,
+as described below, or added to the ``device-groups`` and
+``network-slices`` sections of the values file.
 
 At this point you are ready to bring up additional UPFs and bind them
 to specific slices and devices. An example configuration that brings
@@ -122,7 +126,7 @@ of ``vars/main.yml``:
         "1":
           access: { ip: "192.168.252.6" }
           core:   { ip: "192.168.250.6" }
-          ue_ip_pool: "172.248.0.0/16"
+          ue_ip_pool: "192.168.101.0/24"
 
 Each entry in ``instances`` is a UPF. The ``default`` instance is the
 built-in UPF that comes up as part of SD-Core, and every other
@@ -139,13 +143,20 @@ type:
 
 .. code-block::
 
-   $ make 5gc-upf-install
+   $ make aether-add-upfs
 
-(Alternatively, ``make aether-add-upfs`` first runs the router step,
-which builds any network the new instance needs, and then installs the
-UPF. Each additional UPF also gets a systemd unit,
+This first runs the router step (``5gc-router-install``), which builds
+any network the new instance needs, and then installs the UPF
+(``5gc-upf-install``). When an additional UPF's core network has the
+server as its gateway, it also gets a systemd unit,
 ``aether-upf-<name>-routes.service``, carrying its UE pool route and
-NAT.)
+NAT.
+
+To remove an additional UPF, run ``make aether-remove-upfs`` while it
+is still listed (this removes every additional UPF in
+``core.upf.instances``, with its route and NAT unit), delete its entry,
+and run ``make aether-add-upfs`` to reinstall the remaining ones and
+take down any network no UPF uses any more.
 
 At this point the new UPF(s) will be running in their own namespaces
 (you can verify this using ``kubectl get pods --all-namespaces``), but
@@ -166,7 +177,7 @@ the emulation, type:
 
 .. code-block::
 
-   $ make gnbsim-run
+   $ make aether-gnbsim-run
 
 To verify that both UPFs were functional, you will need to look at the
 ``summary.log`` file from both instances of gNBsim:
@@ -371,7 +382,7 @@ differences from the 5G case:
 * The ``amp`` section of ``vars/main.yml`` specifies that 4G-specific
   dashboards get loaded into the Monitoring service:
 
-  ``monitor_dashboard:  "deps/amp/roles/monitor-load/templates/4g-monitor"``
+  ``monitor_dashboard:  "deps/amp/roles/monitor-load/templates/4g-monitoring"``
 
 * You need to edit the 4G-specific values file used to configure
   SD-Core with details for the 4G SIM cards you use:
@@ -596,19 +607,19 @@ section:
    oai:
      docker:
        container:
-         gnb_image: oaisoftwarealliance/oai-gnb:develop
-         ue_image: oaisoftwarealliance/oai-nr-ue:develop
+         gnb_image: oaisoftwarealliance/oai-gnb:2026.w10
+         ue_image: oaisoftwarealliance/oai-nr-ue:2026.w10
        network:
          data_iface: ens18
-         name: public_net
-         subnet: "172.20.0.0/16"
+         name: public_net      # Set to `host` when connecting RU/USRP (i.e., simulation: false)
+         subnet: "172.20.0.0/16"        # Set to data_iface's subnet when `name: host`
          bridge:
            name: rfsim5g-public
      simulation: true
      servers:
        0:
          gnb_conf: deps/oai/roles/gNb/templates/gnb.sa.band78.fr1.106PRB.usrpb210.conf
-         gnb_ip: "172.20.0.2"
+         gnb_ip: "172.20.0.2"        # Host interface used for the gNB
          ue_conf: deps/oai/roles/uEsimulator/templates/ue.conf
 
 Variable ``simulation`` is set to ``true`` by default, causing OnRamp
@@ -626,9 +637,9 @@ change these values accordingly. See the :doc:`Development Support
 
 The ``network`` block of the ``oai`` section configures the necessary
 tunnels so the gNB can connect to the Core's user and control planes.
-Variable ``network.data_iface`` needs to be modified in the same way
-as in the ``core`` and ``gnbsim`` sections of ``vars/main.yml``, as
-described throughout this Guide.
+Set ``network.data_iface`` to the OAI server's interface, in the same
+way as ``gnbsim.router.data_iface``. The ``core`` section does not name
+an interface; see :doc:`Verify Network </onramp/network>`.
 
 Note: we can deploy multiple OAI gNB's simultaneously by adding as
 many servers under ``oai.servers`` section.
@@ -769,13 +780,11 @@ section:
          ue_image: aetherproject/srsran-ue:rel-1.0.0
        network:
          name: host
-         bridge:
-           name: rfsim5g-public
      simulation: true
      servers:
        0:
+         gnb_ip: "10.76.28.115"            # Host interface used for the gNB
          gnb_conf: deps/srsran/roles/gNB/templates/gnb_zmq.yaml
-         gnb_ip: "172.20.0.2"
          ue_conf: deps/srsran/roles/uEsimulator/templates/ue_zmq.conf
 
 Variable ``simulation`` is set to ``true`` by default, causing OnRamp
@@ -790,8 +799,9 @@ respectively. If you plan to modify the srsRAN software, you will need to
 change these values accordingly. See the :doc:`Development Support
 </onramp/devel>` section for guidance.
 
-The ``network`` block of the ``srsran`` section configures the necessary
-tunnels so the gNB can connect to the Core's user and control planes.
+The ``network`` block of the ``srsran`` section configures the gNB to
+run using the host network, and ``gnb_ip`` is the host address the gNB
+uses.
 
 The path names associated with variables ``gnb_conf`` and
 ``ue_conf`` are srsRAN-specific configuration files. The two
@@ -897,8 +907,8 @@ section:
            pf_iface: "enp81s0f3np3"
            du_mac_addr: "00:33:22:33:00:11"
            ru_mac_addr: "70:b3:d5:e1:5e:7e"
-           vf_bdf: ""
-           isolated_cpus: "3-23"
+           vf_bdf: "0000:51:19.0"
+           isolated_cpus: "3-15"
 
 Variable ``simulation`` is set to ``true`` by default, causing OnRamp
 to deploy the simulated UE. When set to ``false``, the simulated UE
@@ -979,7 +989,9 @@ When ``ocudu.simulation`` is set to ``true``, target
 rendered ``ue_conf`` file, configures a default route inside the UE
 network namespace based on
 ``core.upf.instances.default.ue_ip_pool``, and then runs a ping test
-toward the Core subnet derived from ``core.networks.core.subnet``. In other words, this step does more than
+toward the gateway of the default UPF's core network
+(``192.168.250.1`` unless ``core.networks.core.gateway`` names a
+router). In other words, this step does more than
 launch the UE; it also performs a basic end-to-end connectivity check.
 
 To deploy the OCUDU blueprint with a USRP and physical UE, set
@@ -1191,7 +1203,7 @@ then add the route as follows:
          - to: {{ ansible_default_ipv4.address }}
            via: 169.254.1.1
          - to: 10.203.1.0/24
-           via: 10.203.1.1
+           via: 10.21.61.1
 
 Guidelines for Blueprints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1229,7 +1241,7 @@ recommend the following guidelines.
   override files), which can then be referenced by
   ``vars/main-<blueprint>.yml``. The exception is variables that
   enable/disable a particular feature. Two good examples are
-  ``core.standalone`` and ``oai.simulation``.
+  ``core.upf.mode`` and ``oai.simulation``.
 
 * Keep blueprints narrow. One of their main values is to document (in
   code) how a particular feature is enabled and configured. Introduce
